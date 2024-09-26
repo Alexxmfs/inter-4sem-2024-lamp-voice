@@ -1,5 +1,6 @@
 from flask import Flask, render_template, json, request, Response
 import config
+from exemplo_sql import listarPessoas, criarPessoa  # Importando as funções do exemplo_sql.py
 
 app = Flask(__name__)
 
@@ -13,10 +14,11 @@ def sobre():
 
 @app.get('/listar')
 def listar():
-    lista = [
-        { 'id': 1, 'nome': 'Nome 1' },
-        { 'id': 2, 'nome': 'Nome 2' }
-	]
+    pessoas = listarPessoas()  # Usando a função já definida para listar pessoas
+
+    # Transformar o resultado em uma lista de dicionários
+    lista = [{'id': pessoa['id'], 'nome': pessoa['nome']} for pessoa in pessoas]
+
     return json.jsonify(lista)
 
 @app.post('/criar')

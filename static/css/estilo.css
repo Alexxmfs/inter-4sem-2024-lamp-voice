@@ -8,7 +8,7 @@ html, body {
 }
 
 .limitador {
-	max-width: 1200px;
+	max-width: 1366px;
 	margin: 0px auto;
 
 	/* Para fazer o rodapé ficar sempre na parte inferior da página ;) */

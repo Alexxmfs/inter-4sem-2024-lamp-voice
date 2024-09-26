@@ -37,18 +37,19 @@ def listarPessoas():
 	# O with do Python é similar ao using do C#, ou o try with resources do Java.
 	# Ele serve para limitar o escopo/vida do objeto automaticamente, garantindo
 	# que recursos, como uma conexão com o banco, não sejam desperdiçados!
-	with Session(engine) as sessao:
-		pessoas = sessao.execute(text("SELECT id, nome, email FROM pessoa ORDER BY nome"))
+    with Session(engine) as sessao:
+        pessoas = sessao.execute(text("SELECT id, nome, email FROM pessoa ORDER BY nome")).fetchall()
 
 		# Como cada registro retornado é uma tupla ordenada, é possível
 		# utilizar a forma de enumeração de tuplas:
-		for (id, nome, email) in pessoas:
-			print(f'\nid: {id} / nome: {nome} / email: {email}')
+        lista_pessoas = [{'id': pessoa.id, 'nome': pessoa.nome, 'email': pessoa.email} for pessoa in pessoas]
 
 		# Ou, se preferir, é possível retornar cada tupla, o que fica mais parecido
 		# com outras linguagens de programação:
 		#for pessoa in pessoas:
 		#	print(f'\nid: {pessoa.id} / nome: {pessoa.nome} / email: {pessoa.email}')
+        return lista_pessoas  # Retorna a lista de dicionários
+
 
 def obterPessoa(id):
 	with Session(engine) as sessao:
