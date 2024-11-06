@@ -4,7 +4,7 @@
 # Para isso, ele precisa ser instalado via pip (de preferência com o VS Code fechado):
 # python -m pip install SQLAlchemy
 #
-# Além disso, o SQLAlchemy precisa de um driver do conexão ao banco. Isso depende do servidor
+# Além disso, o SQLAlchemy precisa de um driver de conexão ao banco. Isso depende do servidor
 # (MySQL, Postgres, SQL Server, Oracle...) e do driver real. Vamos utilizar o driver MySQL-Connector,
 # que também precisa ser instalado (de preferência com o VS Code fechado):
 # python -m pip install mysql-connector-python
@@ -12,19 +12,25 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 import config
 
-# Tabela utilizada nos exemplos:
+# Tabelas utilizadas nos exemplos:
 # 
-# CREATE TABLE pessoa (
-#   id int NOT NULL PRIMARY KEY AUTO_INCREMENT,
-#   nome varchar(50) NOT NULL,
-#   email varchar(50) NOT NULL,
-#   UNIQUE KEY nome_UN (nome)
+# CREATE TABLE dispositivo (
+#   id_dispositivo int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+#   nome varchar(50) NOT NULL
+# );
+#
+# CREATE TABLE leitura (
+#   id_leitura BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+#   id_dispositivo INT,
+#   consumo FLOAT,
+#   `data` DATETIME,
+#   FOREIGN KEY (id_dispositivo) REFERENCES dispositivo(id_dispositivo)
 # );
 
 # Como criar uma comunicação com o banco de dados:
 # https://docs.sqlalchemy.org/en/14/core/engines.html
 #
-# Detalhes específicos ao MySQL
+# Detalhes específicos ao MySQL:
 # https://docs.sqlalchemy.org/en/14/dialects/mysql.html#module-sqlalchemy.dialects.mysql.mysqlconnector
 #
 # mysql+mysqlconnector://<user>:<password>@<host>[:<port>]/<dbname>
@@ -33,60 +39,46 @@ engine = create_engine(config.conn_str)
 # A função text(), utilizada ao longo desse código, serve para encapsular um comando
 # SQL qualquer, de modo que o SQLAlchemy possa entender!
 
-def listarPessoas():
-	# O with do Python é similar ao using do C#, ou o try with resources do Java.
-	# Ele serve para limitar o escopo/vida do objeto automaticamente, garantindo
-	# que recursos, como uma conexão com o banco, não sejam desperdiçados!
+def listarDispositivos():
     with Session(engine) as sessao:
-        pessoas = sessao.execute(text("SELECT id, nome, email FROM pessoa ORDER BY nome")).fetchall()
+        dispositivos = sessao.execute(text("SELECT id_dispositivo, nome FROM dispositivo ORDER BY nome")).fetchall()
+        lista_dispositivos = [{'id_dispositivo': dispositivo.id_dispositivo, 'nome': dispositivo.nome} for dispositivo in dispositivos]
+        return lista_dispositivos  
 
-		# Como cada registro retornado é uma tupla ordenada, é possível
-		# utilizar a forma de enumeração de tuplas:
-        lista_pessoas = [{'id': pessoa.id, 'nome': pessoa.nome, 'email': pessoa.email} for pessoa in pessoas]
+def listarLeituras():
+    with Session(engine) as sessao:
+        leituras = sessao.execute(text("""
+            SELECT l.id_leitura, l.id_dispositivo, l.consumo, l.data, d.nome 
+            FROM leitura l 
+            JOIN dispositivo d ON l.id_dispositivo = d.id_dispositivo 
+            ORDER BY l.data
+        """)).fetchall()
+        lista_leituras = [{'id_leitura': leitura.id_leitura, 'nome_dispositivo': leitura.nome, 'consumo': leitura.consumo, 'data': leitura.data} for leitura in leituras]
+        return lista_leituras  
 
-		# Ou, se preferir, é possível retornar cada tupla, o que fica mais parecido
-		# com outras linguagens de programação:
-		#for pessoa in pessoas:
-		#	print(f'\nid: {pessoa.id} / nome: {pessoa.nome} / email: {pessoa.email}')
-        return lista_pessoas  # Retorna a lista de dicionários
+def obterDispositivo(id_dispositivo):
+    with Session(engine) as sessao:
+        parametros = {'id_dispositivo': id_dispositivo}
+        dispositivo = sessao.execute(text("SELECT id_dispositivo, nome FROM dispositivo WHERE id_dispositivo = :id_dispositivo"), parametros).first()
 
+        if dispositivo is None:
+            print('Dispositivo não encontrado!')
+        else:
+            print(f'\nid_dispositivo: {dispositivo.id_dispositivo} / nome: {dispositivo.nome}')
 
-def obterPessoa(id):
-	with Session(engine) as sessao:
-		parametros = {
-			'id': id
-		}
+def criarDispositivo(nome):
+    with Session(engine) as sessao, sessao.begin():
+        dispositivo = {'nome': nome}
+        sessao.execute(text("INSERT INTO dispositivo (nome) VALUES (:nome)"), dispositivo)
 
-		# Mais informações sobre o método execute e sobre o resultado que ele retorna:
-		# https://docs.sqlalchemy.org/en/14/orm/session_api.html#sqlalchemy.orm.Session.execute
-		# https://docs.sqlalchemy.org/en/14/core/connections.html#sqlalchemy.engine.Result
-		pessoa = sessao.execute(text("SELECT id, nome, email FROM pessoa WHERE id = :id"), parametros).first()
-
-		if pessoa == None:
-			print('Pessoa não encontrada!')
-		else:
-			print(f'\nid: {pessoa.id} / nome: {pessoa.nome} / email: {pessoa.email}')
-
-def criarPessoa(nome, email):
-	# É importante utilizar o método begin() para que a sessão seja comitada
-	# automaticamente ao final, caso não ocorra uma exceção!
-	# Isso não foi necessário nos outros exemplos porque nenhum dado estava sendo
-	# alterado lá! Caso alguma exceção ocorra, rollback() será executado automaticamente,
-	# e nenhuma alteração será persistida. Para mais informações de como explicitar
-	# esse processo de commit() e rollback():
-	# https://docs.sqlalchemy.org/en/14/orm/session_basics.html#framing-out-a-begin-commit-rollback-block
-	with Session(engine) as sessao, sessao.begin():
-		pessoa = {
-			'nome': nome,
-			'email': email
-		}
-
-		sessao.execute(text("INSERT INTO pessoa (nome, email) VALUES (:nome, :email)"), pessoa)
-
-		# Para inserir, ou atualizar, vários registros ao mesmo tempo, a forma mais rápida
-		# é passar uma lista como segundo parâmetro:
-		# lista = [ ... ]
-		# sessao.execute(text("INSERT INTO pessoa (nome, email) VALUES (:nome, :email)"), lista)
+def criarLeitura(id_dispositivo, consumo, data):
+    with Session(engine) as sessao, sessao.begin():
+        leitura = {
+            'id_dispositivo': id_dispositivo,
+            'consumo': consumo,
+            'data': data
+        }
+        sessao.execute(text("INSERT INTO leitura (id_dispositivo, consumo, `data`) VALUES (:id_dispositivo, :consumo, :data)"), leitura)
 
 # O uso desse tipo de instrução é muito comum em Python!
 # Quando executamos um arquivo direto pela linha de comando, como
@@ -96,7 +88,12 @@ def criarPessoa(nome, email):
 # Quando o arquivo é importado, __name__ valerá o nome do arquivo sem a extensão
 # .py, como 'exemplo_sql'
 if __name__ == '__main__':
-	listarPessoas()
-
-# Para mais informações:
-# https://docs.sqlalchemy.org/en/14/tutorial/dbapi_transactions.html
+    # Exemplo de listagem de dispositivos
+    dispositivos = listarDispositivos()
+    for dispositivo in dispositivos:
+        print(f'id_dispositivo: {dispositivo["id_dispositivo"]} / nome: {dispositivo["nome"]}')
+    
+    # Exemplo de listagem de leituras de consumo
+    leituras = listarLeituras()
+    for leitura in leituras:
+        print(f'id_leitura: {leitura["id_leitura"]} / dispositivo: {leitura["nome_dispositivo"]} / consumo: {leitura["consumo"]} / data: {leitura["data"]}')

@@ -57,6 +57,14 @@ html, body {
     transform: translateY(50px);
 }
 
+.about-right img {
+    width: 420px;
+	padding-bottom: 80px;
+    height: auto;
+	padding-right: 50px;
+    transform: translateY(50px);
+}
+
 .about-right {
     width: 54%;
 }
@@ -239,4 +247,3 @@ html, body {
 .typed-cursor{
     color: #E74D06;
 }
-
